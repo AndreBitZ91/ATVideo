@@ -1,6 +1,7 @@
 import React from 'react';
 import { Game, Team } from '../types';
 import { Download } from 'lucide-react';
+import { calculatePlayerHPI } from '../services/hpi';
 
 interface TimelineProps {
   game: Game;
@@ -20,10 +21,17 @@ export const Timeline: React.FC<TimelineProps> = ({ game, teamA, teamB, onSeek }
   };
 
   const exportCSV = () => {
-    if (game.events.length === 0) {
-      alert('Não há eventos para exportar.');
+    if (game.events.length === 0 && (!game.playerTimeSeconds || Object.keys(game.playerTimeSeconds).length === 0)) {
+      alert('Não há dados para exportar.');
       return;
     }
+
+    // Helper to calculate basic HPI to show in the events export or a separate summary
+    const formatTime = (seconds: number) => {
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60);
+      return `${m}:${s.toString().padStart(2, '0')}`;
+    };
 
     const headers = ['Tempo (s)', 'Equipa', 'Jogador', 'Ação', 'Zona Campo', 'Zona Baliza'];
     const rows = game.events.sort((a, b) => a.timestamp - b.timestamp).map(event => {
@@ -39,7 +47,34 @@ export const Timeline: React.FC<TimelineProps> = ({ game, teamA, teamB, onSeek }
       ].join(',');
     });
 
-    const csvContent = [headers.join(','), ...rows].join('\n');
+    // Also export a Players Summary with Time and HPI
+    const summaryHeaders = ['Equipa', 'Jogador', 'Posição', 'Tempo em Campo', 'Segundos', 'HPI'];
+    const summaryRows: string[] = [];
+
+    [teamA, teamB].forEach(team => {
+      team.players.forEach(player => {
+        const secondsPlayed = game.playerTimeSeconds?.[player.id] || 0;
+        const playerHPI = calculatePlayerHPI(player, game.events);
+
+        if (secondsPlayed > 0 || game.events.some(e => e.playerId === player.id)) {
+          summaryRows.push([
+            `"${team.name}"`,
+            `"${player.name}"`,
+            `"${player.position || 'N/A'}"`,
+            `"${formatTime(secondsPlayed)}"`,
+            Math.floor(secondsPlayed),
+            playerHPI
+          ].join(','));
+        }
+      });
+    });
+
+    const csvContent =
+      "--- EVENTOS ---\n" +
+      [headers.join(','), ...rows].join('\n') +
+      "\n\n--- RESUMO JOGADORES (TEMPO E HPI) ---\n" +
+      [summaryHeaders.join(','), ...summaryRows].join('\n');
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
 
@@ -52,7 +87,7 @@ export const Timeline: React.FC<TimelineProps> = ({ game, teamA, teamB, onSeek }
   };
 
   return (
-    <div className="w-[300px] bg-gray-900 border-l border-gray-700 flex flex-col h-full">
+    <div className="w-full bg-gray-900 border-l border-gray-700 flex flex-col h-full">
       <div className="p-4 border-b border-gray-700 flex justify-between items-center">
         <h3 className="font-bold text-white">Eventos Registados</h3>
         <button

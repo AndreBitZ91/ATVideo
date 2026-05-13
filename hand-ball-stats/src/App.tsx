@@ -2,15 +2,8 @@ import { useState } from 'react';
 import { Dashboard } from './pages/Dashboard';
 import { TeamsSetup } from './pages/TeamsSetup';
 import { NewGame } from './pages/NewGame';
+import { VideoAnalysis } from './pages/VideoAnalysis';
 import './index.css';
-
-// Placeholder for Video Analysis Page
-const VideoAnalysis = ({ gameId, onNavigate }: { gameId: string, onNavigate: (page: string, params?: Record<string, unknown>) => void }) => (
-  <div className="p-8">
-    <button onClick={() => onNavigate('dashboard')} className="mb-4 text-blue-600">Voltar</button>
-    <h1>Video Analysis for game: {gameId}</h1>
-  </div>
-);
 
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');

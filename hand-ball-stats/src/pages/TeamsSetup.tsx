@@ -41,7 +41,7 @@ export const TeamsSetup: React.FC<TeamsSetupProps> = ({ onNavigate }) => {
     if (editingTeam) {
       setEditingTeam({
         ...editingTeam,
-        players: [...editingTeam.players, { id: uuidv4(), name: '', number: '' }]
+        players: [...editingTeam.players, { id: uuidv4(), name: '', number: '', position: 'Central' }]
       });
     }
   };
@@ -113,6 +113,19 @@ export const TeamsSetup: React.FC<TeamsSetupProps> = ({ onNavigate }) => {
                   onChange={e => updatePlayer(index, 'name', e.target.value)}
                   className="flex-1 p-2 border border-gray-300 rounded-md"
                 />
+                <select
+                  value={player.position || 'Central'}
+                  onChange={e => updatePlayer(index, 'position', e.target.value)}
+                  className="p-2 border border-gray-300 rounded-md text-sm"
+                >
+                  <option value="Guarda-Redes">Guarda-Redes</option>
+                  <option value="Ponta Esquerda">Ponta Esquerda</option>
+                  <option value="Lateral Esquerdo">Lateral Esquerdo</option>
+                  <option value="Central">Central</option>
+                  <option value="Lateral Direito">Lateral Direito</option>
+                  <option value="Ponta Direita">Ponta Direita</option>
+                  <option value="Pivot">Pivot</option>
+                </select>
                 <button onClick={() => removePlayer(index)} className="text-red-500 hover:bg-red-50 p-2 rounded-md">
                   <Trash2 size={18} />
                 </button>

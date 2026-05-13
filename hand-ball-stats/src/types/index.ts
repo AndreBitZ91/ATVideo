@@ -1,7 +1,17 @@
+export type PlayerPosition =
+  | 'Guarda-Redes'
+  | 'Ponta Esquerda'
+  | 'Lateral Esquerdo'
+  | 'Central'
+  | 'Lateral Direito'
+  | 'Ponta Direita'
+  | 'Pivot';
+
 export interface Player {
   id: string;
   name: string;
   number: string;
+  position?: PlayerPosition;
 }
 
 export interface Team {
@@ -36,4 +46,5 @@ export interface Game {
   teamAId: string;
   teamBId: string;
   events: EventTag[];
+  playerTimeSeconds?: Record<string, number>; // playerId -> total seconds played
 }

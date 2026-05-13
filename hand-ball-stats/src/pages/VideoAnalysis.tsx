@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { FieldZone } from '../components/FieldZone';
 import { GoalZone } from '../components/GoalZone';
 import { Timeline } from '../components/Timeline';
+import { PlayerTracker } from '../components/PlayerTracker';
 
 interface VideoAnalysisProps {
   gameId: string;
@@ -23,6 +24,10 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Time Tracking State
+  const [onCourtPlayers, setOnCourtPlayers] = useState<Set<string>>(new Set());
+  const [lastTimeUpdate, setLastTimeUpdate] = useState<number>(0);
 
   // Tagging State
   const [isTagging, setIsTagging] = useState(false);
@@ -67,6 +72,49 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
         videoRef.current.play();
       }
       setIsPlaying(!isPlaying);
+    }
+  };
+
+  const togglePlayerOnCourt = (playerId: string) => {
+    const newSet = new Set(onCourtPlayers);
+    if (newSet.has(playerId)) {
+      newSet.delete(playerId);
+    } else {
+      newSet.add(playerId);
+    }
+    setOnCourtPlayers(newSet);
+  };
+
+  const handleTimeUpdate = () => {
+    if (!videoRef.current || !game || !isPlaying) return;
+
+    const currentTime = videoRef.current.currentTime;
+    const delta = currentTime - lastTimeUpdate;
+
+    // Only update if moving forward and delta is reasonable (e.g. not a seek jump)
+    if (delta > 0 && delta < 2) {
+      const currentTimes = { ...(game.playerTimeSeconds || {}) };
+      let updated = false;
+
+      onCourtPlayers.forEach(playerId => {
+        currentTimes[playerId] = (currentTimes[playerId] || 0) + delta;
+        updated = true;
+      });
+
+      if (updated) {
+        // Save without triggering a full re-render on every frame to avoid lag
+        const updatedGame = { ...game, playerTimeSeconds: currentTimes };
+        setGame(updatedGame);
+        // We only persist to localStorage occasionally, e.g., on pause or tag to save disk IO
+      }
+    }
+
+    setLastTimeUpdate(currentTime);
+  };
+
+  const persistToStorage = () => {
+    if (game) {
+      storageService.saveGame(game);
     }
   };
 
@@ -135,7 +183,10 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
     <div className="h-screen flex flex-col bg-gray-900 text-white">
       <header className="p-4 bg-gray-800 flex justify-between items-center shadow-md z-10">
         <div className="flex items-center gap-4">
-          <button onClick={() => onNavigate('dashboard')} className="p-2 hover:bg-gray-700 rounded-full">
+          <button onClick={() => {
+            persistToStorage();
+            onNavigate('dashboard');
+          }} className="p-2 hover:bg-gray-700 rounded-full">
             <ArrowLeft size={24} />
           </button>
           <h1 className="text-xl font-bold truncate max-w-md">{game.name}</h1>
@@ -168,8 +219,15 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
                 src={videoUrl}
                 className="w-full h-full object-contain"
                 onClick={togglePlayPause}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
+                onPlay={() => {
+                  setIsPlaying(true);
+                  if (videoRef.current) setLastTimeUpdate(videoRef.current.currentTime);
+                }}
+                onPause={() => {
+                  setIsPlaying(false);
+                  persistToStorage();
+                }}
+                onTimeUpdate={handleTimeUpdate}
                 controls={!isTagging}
               />
 
@@ -198,12 +256,22 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
 
         {/* Right Side: Timeline or Tagging Panel */}
         {!isTagging ? (
-          <Timeline
-            game={game}
-            teamA={teamA}
-            teamB={teamB}
-            onSeek={handleSeek}
-          />
+          <div className="w-[450px] flex flex-col border-l border-gray-700 bg-gray-900">
+            <div className="flex-1 overflow-hidden">
+              <Timeline
+                game={game}
+                teamA={teamA}
+                teamB={teamB}
+                onSeek={handleSeek}
+              />
+            </div>
+            <PlayerTracker
+              teamA={teamA}
+              teamB={teamB}
+              onCourtPlayers={onCourtPlayers}
+              togglePlayerOnCourt={togglePlayerOnCourt}
+            />
+          </div>
         ) : (
           <div className="w-[450px] bg-gray-800 border-l border-gray-700 p-6 flex flex-col overflow-y-auto shadow-xl">
             <div className="flex justify-between items-center mb-6">
