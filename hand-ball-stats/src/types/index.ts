@@ -12,11 +12,17 @@ export interface Player {
   name: string;
   number: string;
   position?: PlayerPosition;
+  photoUrl?: string;
+  height?: string;
+  weight?: string;
+  birthDate?: string;
+  dominantHand?: 'Direita' | 'Esquerda';
 }
 
 export interface Team {
   id: string;
   name: string;
+  logoUrl?: string;
   players: Player[];
 }
 
@@ -31,6 +37,7 @@ export type ActionType =
 export interface EventTag {
   id: string;
   timestamp: number; // in seconds
+  endTime?: number;  // event end duration
   teamId: string;
   playerId: string;
   action: ActionType;
@@ -47,4 +54,8 @@ export interface Game {
   teamBId: string;
   events: EventTag[];
   playerTimeSeconds?: Record<string, number>; // playerId -> total seconds played
+  firstHalfStart?: number;
+  firstHalfEnd?: number;
+  secondHalfStart?: number;
+  secondHalfEnd?: number;
 }

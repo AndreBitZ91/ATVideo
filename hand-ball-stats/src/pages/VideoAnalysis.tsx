@@ -7,6 +7,7 @@ import { FieldZone } from '../components/FieldZone';
 import { GoalZone } from '../components/GoalZone';
 import { Timeline } from '../components/Timeline';
 import { PlayerTracker } from '../components/PlayerTracker';
+import { GameSegmentsSetup } from '../components/GameSegmentsSetup';
 
 interface VideoAnalysisProps {
   gameId: string;
@@ -28,10 +29,13 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
   // Time Tracking State
   const [onCourtPlayers, setOnCourtPlayers] = useState<Set<string>>(new Set());
   const [lastTimeUpdate, setLastTimeUpdate] = useState<number>(0);
+  const [showSegmentsSetup, setShowSegmentsSetup] = useState(false);
 
   // Tagging State
   const [isTagging, setIsTagging] = useState(false);
+  const [pendingEventStart, setPendingEventStart] = useState<number | null>(null);
   const [tagTime, setTagTime] = useState(0);
+  const [tagEndTime, setTagEndTime] = useState<number | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
   const [selectedAction, setSelectedAction] = useState<ActionType | ''>('');
@@ -47,9 +51,63 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
       setTeamB(storageService.getTeams().find(t => t.id === loadedGame.teamBId) || null);
       if (loadedGame.videoUrl) {
         setVideoUrl(loadedGame.videoUrl);
+        // Show segment setup if any are missing
+        if (loadedGame.firstHalfStart === undefined || loadedGame.firstHalfEnd === undefined) {
+          setShowSegmentsSetup(true);
+        }
       }
     }
   }, [gameId]);
+
+  const togglePlayPause = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if (e.code === 'Space' && !isTagging) {
+        e.preventDefault(); // Prevent page scroll
+        togglePlayPause();
+      }
+
+      if (e.key === 'z' || e.key === 'Z') {
+        if (!isTagging && videoRef.current) {
+          setPendingEventStart(videoRef.current.currentTime);
+          // Optional: give user visual feedback that event started
+        }
+      }
+
+      if (e.key === 'x' || e.key === 'X') {
+        if (!isTagging && videoRef.current && pendingEventStart !== null) {
+          const end = videoRef.current.currentTime;
+          setTagTime(pendingEventStart);
+          setTagEndTime(end);
+          setPendingEventStart(null);
+
+          // Pause and open tagging dialog
+          videoRef.current.pause();
+          setIsPlaying(false);
+          setIsTagging(true);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying, isTagging, pendingEventStart]);
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -60,18 +118,8 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
         const updatedGame = { ...game, videoUrl: url }; // In real electron app, we'd save file path
         storageService.saveGame(updatedGame);
         setGame(updatedGame);
+        setShowSegmentsSetup(true);
       }
-    }
-  };
-
-  const togglePlayPause = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
     }
   };
 
@@ -93,19 +141,32 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
 
     // Only update if moving forward and delta is reasonable (e.g. not a seek jump)
     if (delta > 0 && delta < 2) {
-      const currentTimes = { ...(game.playerTimeSeconds || {}) };
-      let updated = false;
+      // Check if current time is within active game halves (if they are set)
+      const inFirstHalf = game.firstHalfStart !== undefined && game.firstHalfEnd !== undefined
+        ? (currentTime >= game.firstHalfStart && currentTime <= game.firstHalfEnd)
+        : true; // Default to true if not set
 
-      onCourtPlayers.forEach(playerId => {
-        currentTimes[playerId] = (currentTimes[playerId] || 0) + delta;
-        updated = true;
-      });
+      const inSecondHalf = game.secondHalfStart !== undefined && game.secondHalfEnd !== undefined
+        ? (currentTime >= game.secondHalfStart && currentTime <= game.secondHalfEnd)
+        : true; // Default to true if not set
 
-      if (updated) {
-        // Save without triggering a full re-render on every frame to avoid lag
-        const updatedGame = { ...game, playerTimeSeconds: currentTimes };
-        setGame(updatedGame);
-        // We only persist to localStorage occasionally, e.g., on pause or tag to save disk IO
+      const isGameActive = (game.firstHalfStart !== undefined ? inFirstHalf : true) || (game.secondHalfStart !== undefined ? inSecondHalf : false);
+
+      // Only count time if we are in an active half
+      if (game.firstHalfStart === undefined || isGameActive) {
+        const currentTimes = { ...(game.playerTimeSeconds || {}) };
+        let updated = false;
+
+        onCourtPlayers.forEach(playerId => {
+          currentTimes[playerId] = (currentTimes[playerId] || 0) + delta;
+          updated = true;
+        });
+
+        if (updated) {
+          // Save without triggering a full re-render on every frame to avoid lag
+          const updatedGame = { ...game, playerTimeSeconds: currentTimes };
+          setGame(updatedGame);
+        }
       }
     }
 
@@ -123,6 +184,7 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
       videoRef.current.pause();
       setIsPlaying(false);
       setTagTime(videoRef.current.currentTime);
+      setTagEndTime(null);
       setIsTagging(true);
     }
   };
@@ -138,6 +200,7 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
     setSelectedAction('');
     setSelectedFieldZone(null);
     setSelectedGoalZone(null);
+    setTagEndTime(null);
   };
 
   const saveTag = () => {
@@ -149,6 +212,7 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
     const newTag: EventTag = {
       id: uuidv4(),
       timestamp: tagTime,
+      endTime: tagEndTime || undefined,
       teamId: selectedTeam.id,
       playerId: selectedPlayerId,
       action: selectedAction as ActionType,
@@ -233,23 +297,48 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
 
               {!isTagging && (
                 <>
+                  {pendingEventStart !== null && (
+                    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-600 px-4 py-2 rounded-full font-bold text-white flex items-center gap-2 animate-pulse shadow-lg">
+                      <div className="w-3 h-3 bg-white rounded-full"></div>
+                      Gravando Evento... Pressione "X" para terminar
+                    </div>
+                  )}
+
                   <div className="absolute top-4 right-4">
+                    <button onClick={() => setShowSegmentsSetup(true)} className="mr-2 bg-gray-800/80 hover:bg-gray-700 text-white px-4 py-2 rounded-lg shadow text-sm font-medium transition-colors">
+                      Definir Tempos
+                    </button>
                     <label className="cursor-pointer bg-gray-800/80 hover:bg-gray-700 text-white px-4 py-2 rounded-lg shadow text-sm font-medium transition-colors">
                       Mudar Vídeo
                       <input type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
                     </label>
                   </div>
-                  <div className="absolute bottom-16 right-4">
+                  <div className="absolute bottom-16 right-4 flex flex-col items-end gap-2">
+                    <div className="text-sm bg-black/50 px-3 py-1 rounded text-gray-300">
+                      Z: Início | X: Fim Evento | Espaço: Play/Pausa
+                    </div>
                     <button
                       onClick={startTagging}
                       className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-full font-bold shadow-lg transform hover:scale-105 transition-all"
                     >
                       <div className="w-4 h-4 bg-white rounded-full animate-pulse"></div>
-                      Novo Evento
+                      Novo Evento Rápido
                     </button>
                   </div>
                 </>
               )}
+            </div>
+          )}
+          {showSegmentsSetup && videoUrl && (
+            <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
+              <GameSegmentsSetup
+                game={game}
+                currentTime={lastTimeUpdate}
+                onComplete={(updatedGame) => {
+                  setGame(updatedGame);
+                  setShowSegmentsSetup(false);
+                }}
+              />
             </div>
           )}
         </div>
