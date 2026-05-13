@@ -345,7 +345,7 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
 
         {/* Right Side: Timeline or Tagging Panel */}
         {!isTagging ? (
-          <div className="w-[450px] flex flex-col border-l border-gray-700 bg-gray-900">
+          <div className="w-1/3 lg:w-[450px] xl:w-[500px] flex flex-col border-l border-gray-700 bg-gray-900 shrink-0">
             <div className="flex-1 overflow-hidden">
               <Timeline
                 game={game}
@@ -362,7 +362,7 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
             />
           </div>
         ) : (
-          <div className="w-[450px] bg-gray-800 border-l border-gray-700 p-6 flex flex-col overflow-y-auto shadow-xl">
+          <div className="w-1/3 lg:w-[450px] xl:w-[500px] shrink-0 bg-gray-800 border-l border-gray-700 p-6 flex flex-col overflow-y-auto shadow-xl">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <span className="w-3 h-3 bg-red-500 rounded-full"></span>

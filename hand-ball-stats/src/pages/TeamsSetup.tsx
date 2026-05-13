@@ -33,8 +33,13 @@ export const TeamsSetup: React.FC<TeamsSetupProps> = ({ onNavigate }) => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string) => void) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      callback(url);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          callback(event.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 

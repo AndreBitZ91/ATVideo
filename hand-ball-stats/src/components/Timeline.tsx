@@ -33,12 +33,17 @@ export const Timeline: React.FC<TimelineProps> = ({ game, teamA, teamB, onSeek }
       return `${m}:${s.toString().padStart(2, '0')}`;
     };
 
-    const headers = ['Tempo (s)', 'Equipa', 'Jogador', 'Ação', 'Zona Campo', 'Zona Baliza'];
+    const headers = ['Início (s)', 'Fim (s)', 'Duração (s)', 'Equipa', 'Jogador', 'Ação', 'Zona Campo', 'Zona Baliza'];
     const rows = game.events.sort((a, b) => a.timestamp - b.timestamp).map(event => {
       const teamName = event.teamId === teamA.id ? teamA.name : teamB.name;
       const playerName = getPlayerName(event.teamId, event.playerId);
+      const endTime = event.endTime !== undefined ? event.endTime.toFixed(2) : '';
+      const duration = event.endTime !== undefined ? (event.endTime - event.timestamp).toFixed(2) : '';
+
       return [
         event.timestamp.toFixed(2),
+        endTime,
+        duration,
         `"${teamName}"`,
         `"${playerName}"`,
         `"${event.action}"`,

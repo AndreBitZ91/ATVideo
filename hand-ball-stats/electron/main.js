@@ -15,6 +15,12 @@ function createWindow() {
     }
   });
 
+  // Make the application start maximized/fullscreen
+  win.maximize();
+
+  // Optionally, to force strict fullscreen on macOS:
+  // win.setFullScreen(true);
+
   if (process.env.NODE_ENV === 'development') {
     win.loadURL('http://localhost:5173');
     win.webContents.openDevTools();
