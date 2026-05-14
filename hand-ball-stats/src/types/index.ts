@@ -50,6 +50,8 @@ export interface EventTag {
     conquistas: string;
     fase: string;
     situacao: string;
+    guardaRedesAdv?: string; // ID of the opposing goalkeeper
+    jogadorAdv?: string; // ID of the opposing player
   };
 }
 

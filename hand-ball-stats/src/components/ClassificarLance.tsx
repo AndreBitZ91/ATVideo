@@ -47,6 +47,11 @@ export const ClassificarLance: React.FC<ClassificarLanceProps> = ({
   const [situacao, setSituacao] = useState('');
   const [zonaFinalizacao, setZonaFinalizacao] = useState<number | null>(null);
   const [goalZone, setGoalZone] = useState<number | null>(null);
+  const [guardaRedesAdv, setGuardaRedesAdv] = useState('');
+  const [jogadorAdv, setJogadorAdv] = useState('');
+
+  const opposingTeam = selectedTeam?.id === teamA.id ? teamB : teamA;
+  const opposingGoalies = opposingTeam.players.filter(p => p.position === 'Guarda-Redes');
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -78,7 +83,9 @@ export const ClassificarLance: React.FC<ClassificarLanceProps> = ({
         turnOver,
         conquistas,
         fase,
-        situacao
+        situacao,
+        guardaRedesAdv,
+        jogadorAdv
       }
     };
     onSave(tag);
@@ -248,11 +255,30 @@ export const ClassificarLance: React.FC<ClassificarLanceProps> = ({
                 </div>
               </section>
 
-              <section className="bg-[#1e293b]/50 border border-[#334155] rounded-md p-3">
-                 <h4 className="text-[11px] font-bold text-fuchsia-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+              <section className="bg-[#1e293b]/50 border border-[#334155] rounded-md p-4">
+                 <h4 className="text-[11px] font-bold text-fuchsia-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                     Guarda-Redes Adversário
                  </h4>
-                 <p className="text-xs text-gray-500 italic">Defina 'GR' nas Equipas</p>
+                 {opposingGoalies.length > 0 ? (
+                   <div className="flex flex-wrap gap-2">
+                     {opposingGoalies.map(gr => (
+                       <button
+                         key={gr.id}
+                         onClick={() => setGuardaRedesAdv(guardaRedesAdv === gr.id ? '' : gr.id)}
+                         className={`px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-2 transition-colors ${
+                           guardaRedesAdv === gr.id
+                             ? 'bg-fuchsia-600/20 border-fuchsia-500 text-fuchsia-300'
+                             : 'bg-[#0f172a] border-gray-600 text-gray-400 hover:border-gray-400'
+                         }`}
+                       >
+                         <span className="font-bold w-4 h-4 bg-gray-800 rounded-full flex items-center justify-center text-[9px]">{gr.number}</span>
+                         {gr.name.split(' ')[0]}
+                       </button>
+                     ))}
+                   </div>
+                 ) : (
+                   <p className="text-xs text-gray-500 italic">A equipa {opposingTeam.name} não tem Guarda-Redes registados.</p>
+                 )}
               </section>
 
               <section>
@@ -274,10 +300,30 @@ export const ClassificarLance: React.FC<ClassificarLanceProps> = ({
                 </div>
               </section>
 
-              <section className="bg-[#1e293b]/50 border border-red-900/30 rounded-md p-3">
-                 <h4 className="text-[11px] font-bold text-red-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+              <section className="bg-[#1e293b]/50 border border-red-900/30 rounded-md p-4">
+                 <h4 className="text-[11px] font-bold text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                     ⚔ Jogadores Adversários
                  </h4>
+                 {opposingTeam.players.length > 0 ? (
+                   <div className="flex flex-wrap gap-2">
+                     {opposingTeam.players.filter(p => p.position !== 'Guarda-Redes').map(jogador => (
+                       <button
+                         key={jogador.id}
+                         onClick={() => setJogadorAdv(jogadorAdv === jogador.id ? '' : jogador.id)}
+                         className={`px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-2 transition-colors ${
+                           jogadorAdv === jogador.id
+                             ? 'bg-red-600/20 border-red-500 text-red-300'
+                             : 'bg-[#0f172a] border-gray-600 text-gray-400 hover:border-gray-400'
+                         }`}
+                       >
+                         <span className="font-bold w-4 h-4 bg-gray-800 rounded-full flex items-center justify-center text-[9px]">{jogador.number}</span>
+                         {jogador.name.split(' ')[0]}
+                       </button>
+                     ))}
+                   </div>
+                 ) : (
+                   <p className="text-xs text-gray-500 italic">Sem jogadores adversários de campo registados.</p>
+                 )}
               </section>
 
               <section>

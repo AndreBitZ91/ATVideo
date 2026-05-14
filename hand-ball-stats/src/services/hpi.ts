@@ -13,13 +13,18 @@ export const calculatePlayerHPI = (player: Player, events: EventTag[]): number =
 
     // In the new schema, we might not always have player IDs directly mapped to every action
     // If we have team level stats we can't easily attribute to an individual unless mapped.
-    // For now we assume if the player ID is matched OR if it's the new schema we map it directly.
-    if (event.playerId && event.playerId !== player.id) return;
 
-    // If we are using the new schema, but the event wasn't assigned to this specific player, skip
-    // (In a full app we'd have a player picker in ClassificarLance. For now, if playerId is empty, we skip individual HPI)
-    if (!event.playerId && event.extended) return;
+    // First, check if this event was directed AT this player acting as the opposing goalie.
+    // (e.g. A shot was taken, and this player was the defending goalkeeper)
+    if (event.extended?.guardaRedesAdv === player.id) {
+      points += calculateGoaliePoints(action, event.fieldZone);
+      return; // Handled as defending goalie
+    }
 
+    // Otherwise, check if the event was performed BY this player.
+    if (event.playerId !== player.id) return;
+
+    // If performed by the player, calculate as the offensive/primary action
     if (isGoalie) {
       points += calculateGoaliePoints(action, event.fieldZone);
     } else {
@@ -39,6 +44,7 @@ const calculateFieldPlayerPoints = (action: string, zone: number, conquistas?: s
       break;
     case 'Remate Falhado':
     case 'Fora':
+    case 'Defesa': // Se o remate foi defendido, conta como falhado para o jogador de campo
       delta += getMissedShotPoints(zone);
       break;
     case 'Perda de Bola':

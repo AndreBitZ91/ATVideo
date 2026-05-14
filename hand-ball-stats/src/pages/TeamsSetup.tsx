@@ -11,6 +11,7 @@ interface TeamsSetupProps {
 export const TeamsSetup: React.FC<TeamsSetupProps> = ({ onNavigate }) => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [viewingTeam, setViewingTeam] = useState<Team | null>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -83,12 +84,76 @@ export const TeamsSetup: React.FC<TeamsSetupProps> = ({ onNavigate }) => {
 
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-white">Gestão de Equipas</h1>
-        {!editingTeam && (
+        {!editingTeam && !viewingTeam && (
           <button onClick={handleCreateTeam} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors">
             <Plus size={20} /> Nova Equipa
           </button>
         )}
       </div>
+
+      {viewingTeam && !editingTeam && (
+        <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
+          <div className="flex justify-between items-start mb-8 border-b border-gray-700 pb-6">
+            <div className="flex items-center gap-4">
+              {viewingTeam.logoUrl && <img src={viewingTeam.logoUrl} className="w-16 h-16 bg-white rounded object-contain" />}
+              <div>
+                <h2 className="text-2xl font-bold text-white">{viewingTeam.name}</h2>
+                <p className="text-gray-400">{viewingTeam.players.length} jogadores no plantel</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setEditingTeam(viewingTeam)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium text-sm border border-gray-600"
+              >
+                Editar Equipa
+              </button>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center mb-6">
+             <h3 className="text-xl font-bold text-white">Plantel</h3>
+             <button onClick={() => setEditingTeam(viewingTeam)} className="text-blue-400 hover:bg-gray-700 px-4 py-2 rounded-md text-sm font-medium transition-colors border border-gray-700">
+               + Adicionar / Editar Jogadores
+             </button>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {viewingTeam.players.map(player => (
+              <div key={player.id} className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex flex-col items-center gap-3 relative">
+                <div className="w-20 h-20 rounded-full bg-gray-800 border-2 border-gray-600 overflow-hidden flex items-center justify-center">
+                  {player.photoUrl ? (
+                    <img src={player.photoUrl} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-gray-500 font-bold text-2xl">{player.number}</span>
+                  )}
+                </div>
+                <div className="text-center w-full">
+                  <div className="text-white font-bold text-lg truncate">{player.name}</div>
+                  <div className="text-blue-400 text-xs font-bold mt-1 uppercase tracking-wider">{player.position || 'Sem Posição'}</div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-1 text-[10px] text-gray-400 bg-gray-800 p-2 rounded-md">
+                     <div className="text-left">Altura: <span className="text-gray-200">{player.height || '-'}</span></div>
+                     <div className="text-right">Peso: <span className="text-gray-200">{player.weight || '-'}</span></div>
+                     <div className="text-left">Mão: <span className="text-gray-200">{player.dominantHand || '-'}</span></div>
+                     <div className="text-right">Nº: <span className="text-gray-200">{player.number}</span></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {viewingTeam.players.length === 0 && (
+              <div className="col-span-full py-8 text-center text-gray-500 bg-gray-900/50 rounded-xl border border-gray-800">
+                Nenhum jogador registado neste plantel.
+              </div>
+            )}
+          </div>
+          <div className="mt-8 flex justify-end">
+             <button onClick={() => setViewingTeam(null)} className="px-6 py-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
+               Fechar Plantel
+             </button>
+          </div>
+        </div>
+      )}
 
       {editingTeam ? (
         <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
@@ -193,15 +258,21 @@ export const TeamsSetup: React.FC<TeamsSetupProps> = ({ onNavigate }) => {
           </div>
 
           <div className="flex justify-end gap-3 border-t border-gray-700 pt-4">
-            <button onClick={() => setEditingTeam(null)} className="px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
+            <button onClick={() => {
+              setEditingTeam(null);
+              // if we came from viewing team, stay on viewing team
+            }} className="px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors">
               Cancelar
             </button>
-            <button onClick={handleSaveTeam} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500 transition-colors">
+            <button onClick={() => {
+              handleSaveTeam();
+              if (viewingTeam) setViewingTeam(editingTeam);
+            }} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-500 transition-colors">
               <Save size={20} /> Guardar Equipa
             </button>
           </div>
         </div>
-      ) : (
+      ) : !viewingTeam && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {teams.map(team => (
             <div key={team.id} className="bg-gray-800 p-5 rounded-xl shadow-lg border border-gray-700 flex justify-between items-center">
@@ -213,8 +284,9 @@ export const TeamsSetup: React.FC<TeamsSetupProps> = ({ onNavigate }) => {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => setEditingTeam(team)} className="text-blue-400 hover:bg-gray-700 px-3 py-1 rounded transition-colors">Editar</button>
-                <button onClick={() => handleDeleteTeam(team.id)} className="text-red-400 hover:bg-red-500/20 p-2 rounded transition-colors"><Trash2 size={18} /></button>
+                <button onClick={() => setViewingTeam(team)} className="text-blue-400 border border-blue-400/30 hover:bg-blue-900/30 px-3 py-1.5 rounded transition-colors font-medium text-sm">Ver Plantel</button>
+                <button onClick={() => setEditingTeam(team)} className="text-gray-300 hover:bg-gray-700 px-3 py-1.5 rounded transition-colors text-sm border border-gray-600">Editar</button>
+                <button onClick={() => handleDeleteTeam(team.id)} className="text-red-400 hover:bg-red-500/20 p-2 rounded transition-colors border border-transparent hover:border-red-900/50"><Trash2 size={18} /></button>
               </div>
             </div>
           ))}
