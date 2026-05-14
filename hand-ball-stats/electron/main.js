@@ -7,8 +7,10 @@ const __dirname = path.dirname(__filename);
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1920,
+    height: 1080,
+    minWidth: 1280,
+    minHeight: 720,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -18,8 +20,8 @@ function createWindow() {
   // Make the application start maximized/fullscreen
   win.maximize();
 
-  // Optionally, to force strict fullscreen on macOS:
-  // win.setFullScreen(true);
+  // Force strict fullscreen on macOS so all views inherit the full window size
+  win.setFullScreen(true);
 
   if (process.env.NODE_ENV === 'development') {
     win.loadURL('http://localhost:5173');

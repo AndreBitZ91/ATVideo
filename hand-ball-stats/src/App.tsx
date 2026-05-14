@@ -15,7 +15,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans w-full">
+    <div className="h-screen w-screen bg-gray-900 text-gray-100 font-sans overflow-hidden">
       {currentPage === 'dashboard' && <Dashboard onNavigate={navigate} />}
       {currentPage === 'teams' && <TeamsSetup onNavigate={navigate} />}
       {currentPage === 'new-game' && <NewGame onNavigate={navigate} />}
