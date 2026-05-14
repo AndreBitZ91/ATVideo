@@ -44,39 +44,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 flex-1 overflow-auto pb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 flex-1 overflow-auto pb-8 auto-rows-max">
         {games.map(game => {
           const teamA = storageService.getTeams().find(t => t.id === game.teamAId);
           const teamB = storageService.getTeams().find(t => t.id === game.teamBId);
 
           return (
-            <div key={game.id} className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 flex flex-col h-full">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="font-semibold text-xl text-white line-clamp-2" title={game.name}>{game.name}</h3>
-                <button onClick={() => handleDeleteGame(game.id)} className="text-red-400 hover:bg-red-500/20 p-1.5 rounded transition-colors shrink-0">
-                  <Trash2 size={20} />
+            <div key={game.id} className="bg-gray-800 p-4 rounded-lg shadow-md border border-gray-700 flex flex-col h-auto">
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="font-semibold text-lg text-white line-clamp-1" title={game.name}>{game.name}</h3>
+                <button onClick={() => handleDeleteGame(game.id)} className="text-red-400 hover:bg-red-500/20 p-1 rounded transition-colors shrink-0">
+                  <Trash2 size={16} />
                 </button>
               </div>
-              <p className="text-sm text-gray-400 mb-6">{new Date(game.date).toLocaleDateString()}</p>
+              <p className="text-xs text-gray-400 mb-3">{new Date(game.date).toLocaleDateString()}</p>
 
-              <div className="flex justify-between items-center bg-gray-900 border border-gray-700 p-4 rounded-lg mb-6 flex-1">
-                <div className="flex flex-col items-center flex-1 gap-2">
-                  {teamA?.logoUrl ? <img src={teamA.logoUrl} className="h-10 w-10 object-contain" /> : <div className="h-10 w-10 bg-gray-800 rounded-full flex items-center justify-center text-xs text-gray-500">Logo</div>}
-                  <span className="font-medium truncate w-full text-center text-gray-300 text-sm">{teamA?.name || 'Equipa A'}</span>
+              <div className="flex justify-between items-center bg-gray-900 border border-gray-700 p-2 rounded-lg mb-4">
+                <div className="flex flex-col items-center flex-1 gap-1">
+                  {teamA?.logoUrl ? <img src={teamA.logoUrl} className="h-6 w-6 object-contain" /> : <div className="h-6 w-6 bg-gray-800 rounded-full flex items-center justify-center text-[10px] text-gray-500">Logo</div>}
+                  <span className="font-medium truncate w-full text-center text-gray-300 text-xs">{teamA?.name || 'Equipa A'}</span>
                 </div>
-                <span className="text-gray-500 font-bold mx-2 text-sm">VS</span>
-                <div className="flex flex-col items-center flex-1 gap-2">
-                  {teamB?.logoUrl ? <img src={teamB.logoUrl} className="h-10 w-10 object-contain" /> : <div className="h-10 w-10 bg-gray-800 rounded-full flex items-center justify-center text-xs text-gray-500">Logo</div>}
-                  <span className="font-medium truncate w-full text-center text-gray-300 text-sm">{teamB?.name || 'Equipa B'}</span>
+                <span className="text-gray-500 font-bold mx-1 text-xs">VS</span>
+                <div className="flex flex-col items-center flex-1 gap-1">
+                  {teamB?.logoUrl ? <img src={teamB.logoUrl} className="h-6 w-6 object-contain" /> : <div className="h-6 w-6 bg-gray-800 rounded-full flex items-center justify-center text-[10px] text-gray-500">Logo</div>}
+                  <span className="font-medium truncate w-full text-center text-gray-300 text-xs">{teamB?.name || 'Equipa B'}</span>
                 </div>
               </div>
 
               <button
                 onClick={() => onNavigate('analysis', { gameId: game.id })}
-                className="w-full flex justify-center items-center gap-2 px-4 py-3 bg-blue-600/10 border border-blue-600/30 text-blue-400 font-bold rounded-lg hover:bg-blue-600 hover:text-white transition-all mt-auto"
+                className="w-full flex justify-center items-center gap-2 px-3 py-2 bg-blue-600/10 border border-blue-600/30 text-blue-400 font-bold rounded-md hover:bg-blue-600 hover:text-white transition-all text-sm"
               >
-                <Play size={20} fill="currentColor" />
-                Analisar Vídeo
+                <Play size={16} fill="currentColor" />
+                Analisar
               </button>
             </div>
           );

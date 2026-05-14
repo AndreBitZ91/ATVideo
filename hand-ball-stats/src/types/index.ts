@@ -43,6 +43,14 @@ export interface EventTag {
   action: ActionType;
   fieldZone: number; // 1-8
   goalZone: number; // 1-9 (e.g., 3x3 grid)
+  extended?: {
+    posicao: string;
+    resultado: string;
+    turnOver: string;
+    conquistas: string;
+    fase: string;
+    situacao: string;
+  };
 }
 
 export interface Game {

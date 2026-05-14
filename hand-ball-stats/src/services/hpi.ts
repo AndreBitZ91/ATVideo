@@ -7,54 +7,66 @@ export const calculatePlayerHPI = (player: Player, events: EventTag[]): number =
   let points = 100; // Starting baseline
 
   events.forEach(event => {
-    if (event.playerId !== player.id) return;
+    // Check old schema first for backwards compatibility
+    const action = event.extended?.resultado || event.extended?.turnOver || event.action;
+    const isGoalie = player.position === 'Guarda-Redes' || event.extended?.posicao === 'Guarda-Redes';
 
-    if (player.position === 'Guarda-Redes') {
-      points += calculateGoaliePoints(event);
+    // In the new schema, we might not always have player IDs directly mapped to every action
+    // If we have team level stats we can't easily attribute to an individual unless mapped.
+    // For now we assume if the player ID is matched OR if it's the new schema we map it directly.
+    if (event.playerId && event.playerId !== player.id) return;
+
+    // If we are using the new schema, but the event wasn't assigned to this specific player, skip
+    // (In a full app we'd have a player picker in ClassificarLance. For now, if playerId is empty, we skip individual HPI)
+    if (!event.playerId && event.extended) return;
+
+    if (isGoalie) {
+      points += calculateGoaliePoints(action, event.fieldZone);
     } else {
-      points += calculateFieldPlayerPoints(event);
+      points += calculateFieldPlayerPoints(action, event.fieldZone, event.extended?.conquistas);
     }
   });
 
   return points;
 };
 
-const calculateFieldPlayerPoints = (event: EventTag): number => {
+const calculateFieldPlayerPoints = (action: string, zone: number, conquistas?: string): number => {
   let delta = 0;
 
-  switch (event.action) {
+  switch (action) {
     case 'Golo':
-      delta += getGoalPoints(event.fieldZone);
+      delta += getGoalPoints(zone);
       break;
     case 'Remate Falhado':
-      delta += getMissedShotPoints(event.fieldZone);
+    case 'Fora':
+      delta += getMissedShotPoints(zone);
       break;
     case 'Perda de Bola':
-      delta -= 3; // Generic
+    case 'Falha Técnica':
+    case 'Intercepção':
+      delta -= 3; // Generic Turnover penalty
       break;
     case 'Falta':
       delta -= 1; // Generic
       break;
-    case 'Exclusão 2 Min':
-      delta -= 4; // Generic
-      break;
-    // Assist could be added later if action exists
+  }
+
+  if (conquistas) {
+    if (conquistas.includes('2min')) delta -= 4;
+    if (conquistas.includes('7 metros')) delta -= 2;
   }
 
   return delta;
 };
 
-const calculateGoaliePoints = (event: EventTag): number => {
+const calculateGoaliePoints = (action: string, zone: number): number => {
   let delta = 0;
 
   // Goalie points logic from provided table
-  if (event.action === 'Defesa') {
-    delta += getGoalieSavePoints(event.fieldZone);
-  } else if (event.action === 'Golo') {
-    // If the event action is "Golo" but assigned to the goalie, it implies they conceded it
-    // However, usually goals are assigned to the attacker.
-    // For local HPI calculation, if we want to penalize goalie for conceded goal:
-    delta += getGoalieConcededPoints(event.fieldZone);
+  if (action === 'Defesa') {
+    delta += getGoalieSavePoints(zone);
+  } else if (action === 'Golo') {
+    delta += getGoalieConcededPoints(zone);
   }
 
   return delta;

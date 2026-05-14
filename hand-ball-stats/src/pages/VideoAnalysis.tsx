@@ -1,22 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Game, Team, ActionType, EventTag } from '../types';
+import { Game, Team, EventTag } from '../types';
 import { storageService } from '../services/storage';
-import { ArrowLeft, Play, Save, X } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
-import { FieldZone } from '../components/FieldZone';
-import { GoalZone } from '../components/GoalZone';
+import { ArrowLeft, Play } from 'lucide-react';
 import { Timeline } from '../components/Timeline';
 import { PlayerTracker } from '../components/PlayerTracker';
 import { GameSegmentsSetup } from '../components/GameSegmentsSetup';
+import { ClassificarLance } from '../components/ClassificarLance';
 
 interface VideoAnalysisProps {
   gameId: string;
   onNavigate: (page: string) => void;
 }
-
-const ACTIONS: ActionType[] = [
-  'Golo', 'Remate Falhado', 'Perda de Bola', 'Falta', 'Exclusão 2 Min', 'Defesa'
-];
 
 export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate }) => {
   const [game, setGame] = useState<Game | null>(null);
@@ -36,11 +30,6 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
   const [pendingEventStart, setPendingEventStart] = useState<number | null>(null);
   const [tagTime, setTagTime] = useState(0);
   const [tagEndTime, setTagEndTime] = useState<number | null>(null);
-  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
-  const [selectedAction, setSelectedAction] = useState<ActionType | ''>('');
-  const [selectedFieldZone, setSelectedFieldZone] = useState<number | null>(null);
-  const [selectedGoalZone, setSelectedGoalZone] = useState<number | null>(null);
 
   useEffect(() => {
     const loadedGame = storageService.getGame(gameId);
@@ -80,6 +69,16 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
       if (e.code === 'Space' && !isTagging) {
         e.preventDefault(); // Prevent page scroll
         togglePlayPause();
+      }
+
+      if (e.code === 'ArrowLeft' && !isTagging && videoRef.current) {
+        e.preventDefault();
+        videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 3);
+      }
+
+      if (e.code === 'ArrowRight' && !isTagging && videoRef.current) {
+        e.preventDefault();
+        videoRef.current.currentTime = Math.min(videoRef.current.duration, videoRef.current.currentTime + 3);
       }
 
       if (e.key === 'z' || e.key === 'Z') {
@@ -191,41 +190,17 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
 
   const cancelTagging = () => {
     setIsTagging(false);
-    resetTagState();
-  };
-
-  const resetTagState = () => {
-    setSelectedTeam(null);
-    setSelectedPlayerId('');
-    setSelectedAction('');
-    setSelectedFieldZone(null);
-    setSelectedGoalZone(null);
     setTagEndTime(null);
   };
 
-  const saveTag = () => {
-    if (!game || !selectedTeam || !selectedPlayerId || !selectedAction || !selectedFieldZone || !selectedGoalZone) {
-      alert('Por favor, preencha todos os campos antes de guardar.');
-      return;
-    }
-
-    const newTag: EventTag = {
-      id: uuidv4(),
-      timestamp: tagTime,
-      endTime: tagEndTime || undefined,
-      teamId: selectedTeam.id,
-      playerId: selectedPlayerId,
-      action: selectedAction as ActionType,
-      fieldZone: selectedFieldZone,
-      goalZone: selectedGoalZone
-    };
-
+  const saveTag = (newTag: EventTag) => {
+    if (!game) return;
     const updatedGame = { ...game, events: [...game.events, newTag] };
     storageService.saveGame(updatedGame);
     setGame(updatedGame);
 
     setIsTagging(false);
-    resetTagState();
+    setTagEndTime(null);
 
     if (videoRef.current) {
       videoRef.current.play();
@@ -295,6 +270,17 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
                 controls={!isTagging}
               />
 
+              {isTagging && (
+                <ClassificarLance
+                  teamName={game.name}
+                  teamId={teamA.id} // Default to TeamA context for now, or you can add a Team selector in the new UI later
+                  timestamp={tagTime}
+                  endTime={tagEndTime}
+                  onSave={saveTag}
+                  onCancel={cancelTagging}
+                />
+              )}
+
               {!isTagging && (
                 <>
                   {pendingEventStart !== null && (
@@ -333,9 +319,11 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
             <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
               <GameSegmentsSetup
                 game={game}
-                currentTime={lastTimeUpdate}
+                currentTime={lastTimeUpdate} // Updated via handleTimeUpdate, avoids ref reading during render
                 onComplete={(updatedGame) => {
                   setGame(updatedGame);
+                  // Ensure local storage has these immediately
+                  storageService.saveGame(updatedGame);
                   setShowSegmentsSetup(false);
                 }}
               />
@@ -343,131 +331,23 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
           )}
         </div>
 
-        {/* Right Side: Timeline or Tagging Panel */}
-        {!isTagging ? (
-          <div className="w-1/3 lg:w-[450px] xl:w-[500px] flex flex-col border-l border-gray-700 bg-gray-900 shrink-0">
-            <div className="flex-1 overflow-hidden">
-              <Timeline
-                game={game}
-                teamA={teamA}
-                teamB={teamB}
-                onSeek={handleSeek}
-              />
-            </div>
-            <PlayerTracker
+        {/* Right Side: Timeline Panel */}
+        <div className="w-1/3 lg:w-[450px] xl:w-[500px] flex flex-col border-l border-gray-700 bg-gray-900 shrink-0 relative z-40">
+          <div className="flex-1 overflow-hidden">
+            <Timeline
+              game={game}
               teamA={teamA}
               teamB={teamB}
-              onCourtPlayers={onCourtPlayers}
-              togglePlayerOnCourt={togglePlayerOnCourt}
+              onSeek={handleSeek}
             />
           </div>
-        ) : (
-          <div className="w-1/3 lg:w-[450px] xl:w-[500px] shrink-0 bg-gray-800 border-l border-gray-700 p-6 flex flex-col overflow-y-auto shadow-xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <span className="w-3 h-3 bg-red-500 rounded-full"></span>
-                Registar Evento
-              </h2>
-              <button onClick={cancelTagging} className="text-gray-400 hover:text-white">
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="text-sm text-gray-400 mb-6 bg-gray-900 p-3 rounded-lg border border-gray-700">
-              Tempo: <span className="font-mono text-white ml-2">{new Date(tagTime * 1000).toISOString().substr(11, 8)}</span>
-            </div>
-
-            <div className="space-y-6">
-              {/* 1. Equipa */}
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-3">1. Selecionar Equipa</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => { setSelectedTeam(teamA); setSelectedPlayerId(''); }}
-                    className={`py-3 px-4 rounded-lg font-medium transition-colors ${selectedTeam?.id === teamA.id ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
-                  >
-                    {teamA.name}
-                  </button>
-                  <button
-                    onClick={() => { setSelectedTeam(teamB); setSelectedPlayerId(''); }}
-                    className={`py-3 px-4 rounded-lg font-medium transition-colors ${selectedTeam?.id === teamB.id ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
-                  >
-                    {teamB.name}
-                  </button>
-                </div>
-              </div>
-
-              {/* 2. Jogador */}
-              {selectedTeam && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-3">2. Selecionar Jogador</label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {selectedTeam.players.map(player => (
-                      <button
-                        key={player.id}
-                        onClick={() => setSelectedPlayerId(player.id)}
-                        className={`py-2 px-1 rounded text-sm font-medium transition-colors ${selectedPlayerId === player.id ? 'bg-white text-gray-900' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
-                        title={player.name}
-                      >
-                        {player.number}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 3. Ação */}
-              {selectedPlayerId && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-3">3. Ação</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {ACTIONS.map(action => (
-                      <button
-                        key={action}
-                        onClick={() => setSelectedAction(action)}
-                        className={`py-2 px-3 rounded text-sm font-medium transition-colors ${selectedAction === action ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
-                      >
-                        {action}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 4. Zonas */}
-              {selectedAction && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-3 flex justify-between">
-                      <span>4. Zona do Campo</span>
-                      {selectedFieldZone && <span className="text-white font-bold bg-blue-600 px-2 rounded">Zona {selectedFieldZone}</span>}
-                    </label>
-                    <FieldZone selectedZone={selectedFieldZone} onSelectZone={setSelectedFieldZone} />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-3 flex justify-between">
-                      <span>5. Zona da Baliza</span>
-                      {selectedGoalZone && <span className="text-white font-bold bg-blue-600 px-2 rounded">Zona {selectedGoalZone}</span>}
-                    </label>
-                    <GoalZone selectedZone={selectedGoalZone} onSelectZone={setSelectedGoalZone} />
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="mt-8 pt-4 border-t border-gray-700">
-              <button
-                onClick={saveTag}
-                disabled={!selectedTeam || !selectedPlayerId || !selectedAction || !selectedFieldZone || !selectedGoalZone}
-                className="w-full py-4 bg-green-600 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg font-bold text-lg flex justify-center items-center gap-2 hover:bg-green-500 transition-colors"
-              >
-                <Save size={24} />
-                Guardar Evento
-              </button>
-            </div>
-          </div>
-        )}
+          <PlayerTracker
+            teamA={teamA}
+            teamB={teamB}
+            onCourtPlayers={onCourtPlayers}
+            togglePlayerOnCourt={togglePlayerOnCourt}
+          />
+        </div>
       </main>
     </div>
   );
