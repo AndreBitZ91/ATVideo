@@ -71,12 +71,12 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
         togglePlayPause();
       }
 
-      if (e.code === 'ArrowLeft' && !isTagging && videoRef.current) {
+      if (e.code === 'ArrowLeft' && !isTagging && videoRef.current && !e.repeat) {
         e.preventDefault();
         videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 3);
       }
 
-      if (e.code === 'ArrowRight' && !isTagging && videoRef.current) {
+      if (e.code === 'ArrowRight' && !isTagging && videoRef.current && !e.repeat) {
         e.preventDefault();
         videoRef.current.currentTime = Math.min(videoRef.current.duration, videoRef.current.currentTime + 3);
       }
@@ -272,12 +272,13 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
 
               {isTagging && (
                 <ClassificarLance
-                  teamName={game.name}
-                  teamId={teamA.id} // Default to TeamA context for now, or you can add a Team selector in the new UI later
+                  teamA={teamA}
+                  teamB={teamB}
                   timestamp={tagTime}
                   endTime={tagEndTime}
                   onSave={saveTag}
                   onCancel={cancelTagging}
+                  onEditPlayers={() => onNavigate('teams')}
                 />
               )}
 
