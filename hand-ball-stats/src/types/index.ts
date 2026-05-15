@@ -59,7 +59,8 @@ export interface Game {
   id: string;
   name: string;
   date: string;
-  videoUrl?: string; // local file path
+  videoUrl?: string; // local blob URL for playback
+  videoPath?: string; // absolute system path for ffmpeg
   teamAId: string;
   teamBId: string;
   events: EventTag[];

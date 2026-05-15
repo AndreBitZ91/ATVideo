@@ -114,7 +114,10 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
       const url = URL.createObjectURL(file);
       setVideoUrl(url);
       if (game) {
-        const updatedGame = { ...game, videoUrl: url }; // In real electron app, we'd save file path
+        // file.path is available in Electron to get the absolute system path
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const videoPath = (file as any).path;
+        const updatedGame = { ...game, videoUrl: url, videoPath };
         storageService.saveGame(updatedGame);
         setGame(updatedGame);
         setShowSegmentsSetup(true);
