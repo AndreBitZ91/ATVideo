@@ -31,6 +31,14 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
   const [tagTime, setTagTime] = useState(0);
   const [tagEndTime, setTagEndTime] = useState<number | null>(null);
 
+  // We need a ref to the latest game state so event listeners (like onPause)
+  // don't save a stale version of the game that accidentally erases the videoPath.
+  const gameRef = useRef<Game | null>(null);
+
+  useEffect(() => {
+    gameRef.current = game;
+  }, [game]);
+
   useEffect(() => {
     const loadedGame = storageService.getGame(gameId);
     if (loadedGame) {
@@ -38,9 +46,18 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
       setGame(loadedGame);
       setTeamA(storageService.getTeams().find(t => t.id === loadedGame.teamAId) || null);
       setTeamB(storageService.getTeams().find(t => t.id === loadedGame.teamBId) || null);
-      if (loadedGame.videoUrl) {
+      // If there's a system path we prioritize it for restarts because blob URLs expire
+      // using the local file path since webSecurity is false in Electron
+      if (loadedGame.videoPath) {
+        const fileUrl = `file://${loadedGame.videoPath}`;
+        setVideoUrl(fileUrl);
+        loadedGame.videoUrl = fileUrl; // temporary hydrate
+      } else if (loadedGame.videoUrl) {
         setVideoUrl(loadedGame.videoUrl);
-        // Show segment setup if any are missing
+      }
+
+      // Show segment setup if any are missing
+      if (loadedGame.videoUrl || loadedGame.videoPath) {
         if (loadedGame.firstHalfStart === undefined || loadedGame.firstHalfEnd === undefined) {
           setShowSegmentsSetup(true);
         }
@@ -136,7 +153,8 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
   };
 
   const handleTimeUpdate = () => {
-    if (!videoRef.current || !game || !isPlaying) return;
+    const currentGame = gameRef.current;
+    if (!videoRef.current || !currentGame || !isPlaying) return;
 
     const currentTime = videoRef.current.currentTime;
     const delta = currentTime - lastTimeUpdate;
@@ -144,19 +162,19 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
     // Only update if moving forward and delta is reasonable (e.g. not a seek jump)
     if (delta > 0 && delta < 2) {
       // Check if current time is within active game halves (if they are set)
-      const inFirstHalf = game.firstHalfStart !== undefined && game.firstHalfEnd !== undefined
-        ? (currentTime >= game.firstHalfStart && currentTime <= game.firstHalfEnd)
+      const inFirstHalf = currentGame.firstHalfStart !== undefined && currentGame.firstHalfEnd !== undefined
+        ? (currentTime >= currentGame.firstHalfStart && currentTime <= currentGame.firstHalfEnd)
         : true; // Default to true if not set
 
-      const inSecondHalf = game.secondHalfStart !== undefined && game.secondHalfEnd !== undefined
-        ? (currentTime >= game.secondHalfStart && currentTime <= game.secondHalfEnd)
+      const inSecondHalf = currentGame.secondHalfStart !== undefined && currentGame.secondHalfEnd !== undefined
+        ? (currentTime >= currentGame.secondHalfStart && currentTime <= currentGame.secondHalfEnd)
         : true; // Default to true if not set
 
-      const isGameActive = (game.firstHalfStart !== undefined ? inFirstHalf : true) || (game.secondHalfStart !== undefined ? inSecondHalf : false);
+      const isGameActive = (currentGame.firstHalfStart !== undefined ? inFirstHalf : true) || (currentGame.secondHalfStart !== undefined ? inSecondHalf : false);
 
       // Only count time if we are in an active half
-      if (game.firstHalfStart === undefined || isGameActive) {
-        const currentTimes = { ...(game.playerTimeSeconds || {}) };
+      if (currentGame.firstHalfStart === undefined || isGameActive) {
+        const currentTimes = { ...(currentGame.playerTimeSeconds || {}) };
         let updated = false;
 
         onCourtPlayers.forEach(playerId => {
@@ -166,7 +184,7 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
 
         if (updated) {
           // Save without triggering a full re-render on every frame to avoid lag
-          const updatedGame = { ...game, playerTimeSeconds: currentTimes };
+          const updatedGame = { ...currentGame, playerTimeSeconds: currentTimes };
           setGame(updatedGame);
         }
       }
@@ -176,8 +194,8 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
   };
 
   const persistToStorage = () => {
-    if (game) {
-      storageService.saveGame(game);
+    if (gameRef.current) {
+      storageService.saveGame(gameRef.current);
     }
   };
 

@@ -20,6 +20,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: true, // We are leaving these slightly open for local desktop usage, but ideally we should use contextIsolation
       contextIsolation: false,
+      webSecurity: false,
     }
   });
 
