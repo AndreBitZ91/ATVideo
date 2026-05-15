@@ -14,6 +14,7 @@ export const Timeline: React.FC<TimelineProps> = ({ game, teamA, teamB, onSeek }
   const [filterTeam, setFilterTeam] = useState<string>('');
   const [filterPlayer, setFilterPlayer] = useState<string>('');
   const [filterAction, setFilterAction] = useState<string>('');
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
 
   const getPlayerName = (teamId: string, playerId: string) => {
     const team = teamId === teamA.id ? teamA : teamB;
@@ -28,6 +29,32 @@ export const Timeline: React.FC<TimelineProps> = ({ game, teamA, teamB, onSeek }
       return true;
     }).sort((a, b) => b.timestamp - a.timestamp);
   }, [game.events, filterTeam, filterPlayer, filterAction]);
+
+  // Update selection when filtered events change (e.g. clear selection if filtered out)
+  React.useEffect(() => {
+    const validIds = new Set(filteredEvents.map(e => e.id));
+    setSelectedEventIds(prev => {
+      const newSet = new Set<string>();
+      prev.forEach(id => { if (validIds.has(id)) newSet.add(id); });
+      return newSet;
+    });
+  }, [filteredEvents]);
+
+  const toggleSelection = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const newSet = new Set(selectedEventIds);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedEventIds(newSet);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedEventIds.size === filteredEvents.length) {
+      setSelectedEventIds(newSet => { newSet.clear(); return new Set(newSet); });
+    } else {
+      setSelectedEventIds(new Set(filteredEvents.map(e => e.id)));
+    }
+  };
 
   const uniqueActions = useMemo(() => {
     const actions = new Set<string>();
@@ -45,11 +72,14 @@ export const Timeline: React.FC<TimelineProps> = ({ game, teamA, teamB, onSeek }
   const [exportProgress, setExportProgress] = useState({ step: '', progress: 0 });
 
   const exportVideoClips = async (mode: 'single' | 'separate') => {
-    if (filteredEvents.length === 0) return;
+    if (selectedEventIds.size === 0) return;
+
     if (!game.videoPath) {
-      alert('É necessário voltar a selecionar o ficheiro original de vídeo em "Mudar Vídeo" para que o sistema consiga exportar.');
+      alert('⚠️ Caminho do vídeo não encontrado!\n\nSe criou este jogo numa versão mais antiga da aplicação, clique em "Mudar Vídeo" e selecione o ficheiro de vídeo original para permitir a exportação.');
       return;
     }
+
+    const eventsToExport = filteredEvents.filter(e => selectedEventIds.has(e.id)).sort((a, b) => a.timestamp - b.timestamp);
 
     setExporting(true);
     setExportProgress({ step: 'A iniciar...', progress: 0 });
@@ -67,7 +97,7 @@ export const Timeline: React.FC<TimelineProps> = ({ game, teamA, teamB, onSeek }
 
       const result = await ipcRenderer.invoke('export-videos', {
         videoPath: game.videoPath,
-        events: filteredEvents,
+        events: eventsToExport,
         mode
       });
 
@@ -97,8 +127,13 @@ export const Timeline: React.FC<TimelineProps> = ({ game, teamA, teamB, onSeek }
     };
 
     const headers = ['Início (s)', 'Fim (s)', 'Duração (s)', 'Equipa', 'Jogador', 'Ação', 'Zona Campo', 'Zona Baliza'];
-    // Use filtered events for export so the user gets exactly what they searched for
-    const eventsToExport = [...filteredEvents].sort((a, b) => a.timestamp - b.timestamp);
+    // Export what's selected. If nothing is explicitly checked, export the entire filtered view by default.
+    let baseEvents = filteredEvents;
+    if (selectedEventIds.size > 0) {
+      baseEvents = filteredEvents.filter(e => selectedEventIds.has(e.id));
+    }
+
+    const eventsToExport = [...baseEvents].sort((a, b) => a.timestamp - b.timestamp);
     const rows = eventsToExport.map(event => {
       const teamName = event.teamId === teamA.id ? teamA.name : teamB.name;
       const playerName = getPlayerName(event.teamId, event.playerId);
@@ -166,28 +201,33 @@ export const Timeline: React.FC<TimelineProps> = ({ game, teamA, teamB, onSeek }
     <div className="w-full bg-gray-900 border-l border-gray-700 flex flex-col h-full">
       <div className="p-4 border-b border-gray-700 flex flex-col gap-3">
         <div className="flex justify-between items-center">
-          <h3 className="font-bold text-white">Eventos Registados <span className="text-xs text-gray-500 font-normal ml-2">({filteredEvents.length})</span></h3>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-3">
+            <h3 className="font-bold text-white">Eventos Registados <span className="text-xs text-gray-500 font-normal ml-2">({filteredEvents.length})</span></h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400 font-medium mr-2">
+              {selectedEventIds.size} selecionados
+            </span>
             <button
               onClick={exportCSV}
               className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors border border-transparent hover:border-gray-600"
-              title="Exportar Tabela para CSV"
+              title={selectedEventIds.size > 0 ? "Exportar Selecionados para CSV" : "Exportar Tabela para CSV"}
             >
               <Download size={18} />
             </button>
             <button
               onClick={() => exportVideoClips('single')}
-              className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-900/30 rounded-lg transition-colors border border-transparent hover:border-blue-800/50"
-              title="Exportar Vídeos (Único Vídeo)"
-              disabled={filteredEvents.length === 0 || exporting}
+              className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-900/30 rounded-lg transition-colors border border-transparent hover:border-blue-800/50 disabled:opacity-30 disabled:hover:bg-transparent"
+              title="Exportar Clipes Selecionados (Único Vídeo)"
+              disabled={selectedEventIds.size === 0 || exporting}
             >
               <Video size={18} />
             </button>
             <button
               onClick={() => exportVideoClips('separate')}
-              className="p-1.5 text-fuchsia-400 hover:text-fuchsia-300 hover:bg-fuchsia-900/30 rounded-lg transition-colors border border-transparent hover:border-fuchsia-800/50"
-              title="Exportar Vídeos Separados"
-              disabled={filteredEvents.length === 0 || exporting}
+              className="p-1.5 text-fuchsia-400 hover:text-fuchsia-300 hover:bg-fuchsia-900/30 rounded-lg transition-colors border border-transparent hover:border-fuchsia-800/50 disabled:opacity-30 disabled:hover:bg-transparent"
+              title="Exportar Clipes Selecionados (Vídeos Separados)"
+              disabled={selectedEventIds.size === 0 || exporting}
             >
               <Scissors size={18} />
             </button>
@@ -211,7 +251,7 @@ export const Timeline: React.FC<TimelineProps> = ({ game, teamA, teamB, onSeek }
           <select
             value={filterTeam}
             onChange={e => { setFilterTeam(e.target.value); setFilterPlayer(''); }}
-            className="flex-1 bg-gray-800 border border-gray-700 text-gray-200 rounded p-1"
+            className="flex-1 bg-gray-800 border border-gray-700 text-gray-200 rounded p-1.5 focus:ring-1 focus:ring-blue-500"
           >
             <option value="">Todas as Equipas</option>
             <option value={teamA.id}>{teamA.name}</option>
@@ -221,7 +261,7 @@ export const Timeline: React.FC<TimelineProps> = ({ game, teamA, teamB, onSeek }
             value={filterPlayer}
             onChange={e => setFilterPlayer(e.target.value)}
             disabled={!filterTeam}
-            className="flex-1 bg-gray-800 border border-gray-700 text-gray-200 rounded p-1 disabled:opacity-50"
+            className="flex-1 bg-gray-800 border border-gray-700 text-gray-200 rounded p-1.5 disabled:opacity-50 focus:ring-1 focus:ring-blue-500"
           >
             <option value="">Todos os Jogadores</option>
             {filterTeam === teamA.id && teamA.players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -230,36 +270,68 @@ export const Timeline: React.FC<TimelineProps> = ({ game, teamA, teamB, onSeek }
           <select
             value={filterAction}
             onChange={e => setFilterAction(e.target.value)}
-            className="flex-1 bg-gray-800 border border-gray-700 text-gray-200 rounded p-1"
+            className="flex-1 bg-gray-800 border border-gray-700 text-gray-200 rounded p-1.5 focus:ring-1 focus:ring-blue-500"
           >
             <option value="">Todas as Ações</option>
             {uniqueActions.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
         </div>
+
+        {filteredEvents.length > 0 && (
+          <div className="flex items-center px-1 mt-1">
+             <label className="flex items-center gap-2 cursor-pointer group">
+               <input
+                 type="checkbox"
+                 checked={selectedEventIds.size > 0 && selectedEventIds.size === filteredEvents.length}
+                 onChange={toggleSelectAll}
+                 className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-900 cursor-pointer"
+               />
+               <span className="text-xs text-gray-400 group-hover:text-gray-300 font-medium select-none">
+                 Selecionar Todos ({filteredEvents.length})
+               </span>
+             </label>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
-        {filteredEvents.map(event => (
-          <div
-            key={event.id}
-            onClick={() => onSeek(event.timestamp)}
-            className={`bg-gray-800 p-3 rounded-lg border-l-4 ${getTeamColor(event.teamId)} cursor-pointer hover:bg-gray-700 transition-colors group`}
-          >
-            <div className="flex justify-between items-start mb-1">
-              <span className="text-xs font-mono text-gray-400 bg-gray-900 px-2 py-0.5 rounded">
-                {new Date(event.timestamp * 1000).toISOString().substr(14, 5)}
-              </span>
-              <span className="text-xs font-bold text-white">{event.action}</span>
+        {filteredEvents.map(event => {
+          const isSelected = selectedEventIds.has(event.id);
+          return (
+            <div
+              key={event.id}
+              onClick={() => onSeek(event.timestamp)}
+              className={`p-3 rounded-lg border-l-4 cursor-pointer transition-all flex items-start gap-3 ${getTeamColor(event.teamId)} ${
+                isSelected ? 'bg-gray-700/80 ring-1 ring-blue-500/50' : 'bg-gray-800 hover:bg-gray-700'
+              }`}
+            >
+              <div className="pt-0.5" onClick={(e) => toggleSelection(e, event.id)}>
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => {}} // handled by div click
+                  className="w-4 h-4 rounded border-gray-600 bg-gray-900 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-800 cursor-pointer"
+                />
+              </div>
+              <div className="flex-1">
+                <div className="flex justify-between items-start mb-1">
+                  <span className="text-xs font-mono text-gray-400 bg-gray-900 px-2 py-0.5 rounded shadow-inner">
+                    {new Date(event.timestamp * 1000).toISOString().substr(14, 5)}
+                  </span>
+                  <span className="text-xs font-bold text-white">{event.action}</span>
+                </div>
+                <div className="text-sm text-gray-300 font-medium truncate mb-1.5">
+                  {getPlayerName(event.teamId, event.playerId)}
+                </div>
+                <div className="text-[10px] font-mono text-gray-500 flex gap-2 flex-wrap">
+                  {event.fieldZone > 0 && <span className="bg-gray-900 px-1.5 py-0.5 rounded border border-gray-700">Campo Z{event.fieldZone}</span>}
+                  {event.goalZone > 0 && <span className="bg-gray-900 px-1.5 py-0.5 rounded border border-gray-700">Baliza Z{event.goalZone}</span>}
+                  {event.endTime && <span className="bg-blue-900/30 text-blue-400 border border-blue-800/50 px-1.5 py-0.5 rounded">{(event.endTime - event.timestamp).toFixed(1)}s</span>}
+                </div>
+              </div>
             </div>
-            <div className="text-sm text-gray-300 font-medium truncate">
-              {getPlayerName(event.teamId, event.playerId)}
-            </div>
-            <div className="text-xs text-gray-500 mt-1 flex gap-2">
-              <span>Campo: Z{event.fieldZone}</span>
-              <span>Baliza: Z{event.goalZone}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
 
         {game.events.length === 0 ? (
           <div className="text-center p-6 text-gray-500 text-sm">
