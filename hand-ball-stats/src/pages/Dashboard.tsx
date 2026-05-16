@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Game } from '../types';
 import { storageService } from '../services/storage';
 import { Play, Plus, Users, Trash2 } from 'lucide-react';
@@ -8,12 +8,8 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
-  const [games, setGames] = useState<Game[]>([]);
+  const [games, setGames] = useState<Game[]>(() => storageService.getGames());
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setGames(storageService.getGames());
-  }, []);
 
   const handleDeleteGame = (id: string) => {
     if (confirm('Tem a certeza que pretende apagar este jogo?')) {
