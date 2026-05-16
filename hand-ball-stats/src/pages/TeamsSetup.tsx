@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Team, Player } from '../types';
 import { storageService } from '../services/storage';
@@ -9,13 +9,9 @@ interface TeamsSetupProps {
 }
 
 export const TeamsSetup: React.FC<TeamsSetupProps> = ({ onNavigate }) => {
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [teams, setTeams] = useState<Team[]>(() => storageService.getTeams());
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTeams(storageService.getTeams());
-  }, []);
 
   const handleCreateTeam = () => {
     const newTeam: Team = { id: uuidv4(), name: 'Nova Equipa', players: [] };

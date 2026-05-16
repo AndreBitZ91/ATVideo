@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Team, Game } from '../types';
 import { storageService } from '../services/storage';
@@ -9,15 +9,11 @@ interface NewGameProps {
 }
 
 export const NewGame: React.FC<NewGameProps> = ({ onNavigate }) => {
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [teams] = useState<Team[]>(() => storageService.getTeams());
   const [name, setName] = useState('');
   const [teamAId, setTeamAId] = useState('');
   const [teamBId, setTeamBId] = useState('');
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTeams(storageService.getTeams());
-  }, []);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
