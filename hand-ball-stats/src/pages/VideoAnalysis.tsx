@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Game, Team, ActionType, EventTag } from '../types';
 import { storageService } from '../services/storage';
 import { ArrowLeft, Play, Save, X } from 'lucide-react';
@@ -17,10 +17,19 @@ const ACTIONS: ActionType[] = [
 ];
 
 export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate }) => {
-  const [game, setGame] = useState<Game | null>(null);
-  const [teamA, setTeamA] = useState<Team | null>(null);
-  const [teamB, setTeamB] = useState<Team | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [game, setGame] = useState<Game | null>(() => storageService.getGame(gameId) || null);
+  const [teamA] = useState<Team | null>(() => {
+    const loadedGame = storageService.getGame(gameId);
+    return loadedGame ? (storageService.getTeams().find(t => t.id === loadedGame.teamAId) || null) : null;
+  });
+  const [teamB] = useState<Team | null>(() => {
+    const loadedGame = storageService.getGame(gameId);
+    return loadedGame ? (storageService.getTeams().find(t => t.id === loadedGame.teamBId) || null) : null;
+  });
+  const [videoUrl, setVideoUrl] = useState<string | null>(() => {
+    const loadedGame = storageService.getGame(gameId);
+    return loadedGame?.videoUrl || null;
+  });
   const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -33,18 +42,7 @@ export const VideoAnalysis: React.FC<VideoAnalysisProps> = ({ gameId, onNavigate
   const [selectedFieldZone, setSelectedFieldZone] = useState<number | null>(null);
   const [selectedGoalZone, setSelectedGoalZone] = useState<number | null>(null);
 
-  useEffect(() => {
-    const loadedGame = storageService.getGame(gameId);
-    if (loadedGame) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setGame(loadedGame);
-      setTeamA(storageService.getTeams().find(t => t.id === loadedGame.teamAId) || null);
-      setTeamB(storageService.getTeams().find(t => t.id === loadedGame.teamBId) || null);
-      if (loadedGame.videoUrl) {
-        setVideoUrl(loadedGame.videoUrl);
-      }
-    }
-  }, [gameId]);
+
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
