@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Game, Team } from '../types';
 import { Download } from 'lucide-react';
 
@@ -26,7 +26,7 @@ export const Timeline: React.FC<TimelineProps> = ({ game, teamA, teamB, onSeek }
     }
 
     const headers = ['Tempo (s)', 'Equipa', 'Jogador', 'Ação', 'Zona Campo', 'Zona Baliza'];
-    const rows = game.events.sort((a, b) => a.timestamp - b.timestamp).map(event => {
+    const rows = [...game.events].sort((a, b) => a.timestamp - b.timestamp).map(event => {
       const teamName = event.teamId === teamA.id ? teamA.name : teamB.name;
       const playerName = getPlayerName(event.teamId, event.playerId);
       return [
@@ -51,6 +51,10 @@ export const Timeline: React.FC<TimelineProps> = ({ game, teamA, teamB, onSeek }
     document.body.removeChild(link);
   };
 
+  const sortedEventsDesc = useMemo(() => {
+    return [...game.events].sort((a, b) => b.timestamp - a.timestamp);
+  }, [game.events]);
+
   return (
     <div className="w-[300px] bg-gray-900 border-l border-gray-700 flex flex-col h-full">
       <div className="p-4 border-b border-gray-700 flex justify-between items-center">
@@ -65,7 +69,7 @@ export const Timeline: React.FC<TimelineProps> = ({ game, teamA, teamB, onSeek }
       </div>
 
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
-        {game.events.sort((a, b) => b.timestamp - a.timestamp).map(event => (
+        {sortedEventsDesc.map(event => (
           <div
             key={event.id}
             onClick={() => onSeek(event.timestamp)}
